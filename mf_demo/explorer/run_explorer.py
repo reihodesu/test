@@ -11,7 +11,7 @@ import sys
 import numpy as np
 
 from .config import XKEYS, T_REF
-from .sensitivity import analyze_at
+from .sensitivity import analyze_mode
 from .screening import generate_population, screen_by_sensitivity
 from . import viz_explorer as viz
 
@@ -24,8 +24,8 @@ def main(N_pop=600, N_sobol=256):
     print(f"=== ①②③ 設計探索アーキテクチャ v2 (母集団={N_pop}, Sobol N={N_sobol}) ===")
 
     print("[1] ① 感度解析（design, 放電後電圧 @ 基準年）")
-    res_y = analyze_at("design", T_REF, N_sobol, response="y_end", calc_second_order=True)
-    res_c = analyze_at("design", T_REF, N_sobol, response="Cli", calc_second_order=True)
+    _res = analyze_mode("design", T_REF, N_sobol, calc_second_order=True)
+    res_y, res_c = _res["y_end"], _res["Cli"]
     STy = dict(zip(XKEYS, res_y["ST"]))
     print("    ST(y_end):", {k: round(v, 2) for k, v in STy.items()})
 

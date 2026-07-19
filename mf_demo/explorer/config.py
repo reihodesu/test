@@ -52,7 +52,12 @@ RESPONSES = {
               "mode": "抵抗劣化モード"},
     "Cli":   {"label": "限界Li塩濃度 [mol/L]", "constraint": "max", "thr": 1.4,
               "mode": "電解液Li+濃度拡散劣化モード"},
+    # 二値応答: 300W維持可否（1=維持可, 0=不可）。全域で定義されるため代入不要。
+    "feasible": {"label": "300W維持可否 [0/1]", "constraint": None, "thr": None,
+                 "mode": "電力維持の成否"},
 }
+# 無効サンプル代入時の worst-case ペナルティ値（penalty ポリシー用, 物理的な失敗側）
+RESP_PENALTY = {"y_end": 0.0, "Cli": 5.0}
 
 # 設計 Li 塩濃度（初期）[mol/L]。無次元C-rate = Cli / C_Li_DESIGN の分母。
 C_LI_DESIGN = 1.4       # 目標: 劣化後も限界Li塩濃度がこれを超えない設計
