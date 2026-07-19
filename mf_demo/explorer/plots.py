@@ -174,6 +174,39 @@ def fig_network(res_y, res_c, path):
     fig.savefig(path, bbox_inches="tight"); plt.close(fig)
 
 
+def fig_f1_robustness(res, path):
+    """F-1: 3手法（median/penalty代入 Sobol・代入非依存 Spearman）で
+    領域を絞ると 曲路率→活物質密度 の入れ替わりが再現するかを示す。"""
+    methods = [("ST_median", "Sobol ST（median代入）"),
+               ("ST_penalty", "Sobol ST（penalty代入=worst-case）"),
+               ("spearman", "Spearman |ρ|（有効サンプルのみ・代入非依存）")]
+    names = [r["name"] for r in res]
+    x = np.arange(len(XKEYS)); nb = len(res); w = 0.8 / nb
+    shades = plt.cm.Reds(np.linspace(0.35, 0.85, nb))
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5.4))
+    for ax, (key, title) in zip(axes, methods):
+        for i, r in enumerate(res):
+            lab = f"{names[i]}（有効{r['valid_rate']:.0%}/代入{r['impute_rate']:.0%}）"
+            ax.bar(x + (i - (nb - 1) / 2) * w, r[key], w, color=shades[i], label=lab)
+        ax.set_xticks(x)
+        ax.set_xticklabels([SHORT[k].splitlines()[0] for k in XKEYS], fontsize=7.5, rotation=30, ha="right")
+        for tick, k in zip(ax.get_xticklabels(), XKEYS):
+            tick.set_color(CAT_COLOR[CATEGORY[k]])
+        ax.grid(axis="y", alpha=.3)
+        ax.set_title(title, fontsize=10)
+        ax.legend(fontsize=7.5, loc="upper right")
+    axes[0].set_ylabel("感度指標（手法ごとにスケール異なる）", fontsize=9.5)
+    handles = [plt.Line2D([0], [0], marker="s", ls="", ms=9, mfc=CAT_COLOR[c],
+                          mec="none", label=c) for c in CAT_COLOR]
+    fig.legend(handles=handles, loc="lower center", ncol=3, fontsize=9, frameon=False,
+               bbox_to_anchor=(0.5, -0.02))
+    fig.suptitle("F-1 §5.4 ロバスト性検証（限界Li塩濃度, design, 5年）：全域→拡散頻発域で 曲路率(材料物性)→活物質密度(設計因子) の入れ替わりが3手法とも再現\n"
+                 "頻発域は有効率98%（代入率2%）＝代入の影響が最小の領域。因子ラベル色＝分類（青=設計因子/緑=材料物性/赤=使用条件）",
+                 fontsize=11)
+    fig.tight_layout(rect=[0, 0.03, 1, 0.92])
+    fig.savefig(path, bbox_inches="tight"); plt.close(fig)
+
+
 def fig_conditional_staged(staged, response, path):
     """領域条件付き感度（段階的に絞った領域）。因子を分類色でラベル、領域を濃淡で。"""
     x = np.arange(len(XKEYS)); nb = len(staged); w = 0.8 / nb

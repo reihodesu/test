@@ -133,6 +133,52 @@ def convergence(mode: str, t: float, response: str = "Cli",
 MIN_SAMPLES = 200  # 領域条件付き感度の最小サンプル数ガード
 
 
+def _region_bounds(ov):
+    from .config import VARSPEC
+    lo = np.array([(ov.get(k, VARSPEC[k]["design"]))[0] for k in XKEYS])
+    hi = np.array([(ov.get(k, VARSPEC[k]["design"]))[1] for k in XKEYS])
+    return lo, hi
+
+
+def f1_robustness(regions, t: float, N_sobol=2048, N_lhs=6000):
+    """F-1: §5.4 の入れ替わりが代入方針/代入非依存手法で再現するかを検証。
+
+    各領域で 限界Li塩濃度 Cli の感度を 3手法で算出:
+      - Sobol ST（median 代入）
+      - Sobol ST（penalty=worst-case 代入）
+      - Spearman |ρ|（有効サンプルのみ, 代入非依存の順位相関ベース簡易感度）
+        ※ Saltelli 行列を使わないため厳密な Sobol ではない（分散分解でなく単調性の指標）。
+    併せて各領域の有効率・代入率を実測する。
+    """
+    from scipy.stats import qmc, spearmanr
+    out = []
+    for name, ov in regions:
+        prob = make_problem("design", XKEYS, override_bounds=ov)
+        X = sobol_sample.sample(prob, N_sobol, calc_second_order=False, seed=7)
+        Y = evaluate(X, XKEYS, t)
+        vr = float(np.mean(Y["valid"]))
+        med = _indices(prob, Y["Cli"], False, "median")["ST"]
+        pen = _indices(prob, Y["Cli"], False, "penalty",
+                       RESP_PENALTY["Cli"])["ST"]
+        # 代入非依存: 領域内 LHS の有効サンプルのみで Spearman |ρ|
+        lo, hi = _region_bounds(ov)
+        XL = lo + qmc.LatinHypercube(d=len(XKEYS), seed=11).random(N_lhs) * (hi - lo)
+        YL = evaluate(XL, XKEYS, t)
+        v = YL["valid"]; cli = YL["Cli"]
+        rho = []
+        for j in range(len(XKEYS)):
+            if v.sum() > MIN_SAMPLES and np.ptp(XL[v, j]) > 0:
+                r = spearmanr(XL[v, j], cli[v]).correlation
+                rho.append(abs(r) if np.isfinite(r) else 0.0)
+            else:
+                rho.append(np.nan)
+        out.append({"name": name, "override": ov, "valid_rate": vr,
+                    "impute_rate": 1.0 - vr, "n_saltelli": int(len(X)),
+                    "n_valid_lhs": int(v.sum()), "t": t,
+                    "ST_median": med, "ST_penalty": pen, "spearman": rho})
+    return out
+
+
 def conditional_staged(response: str, t: float, N: int, regions, keys=None,
                        invalid_policy="median"):
     """段階的に絞った複数領域で ST を算出（並行座標ブラッシング相当・領域条件付き）。
