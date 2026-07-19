@@ -174,6 +174,33 @@ def fig_network(res_y, res_c, path):
     fig.savefig(path, bbox_inches="tight"); plt.close(fig)
 
 
+def fig_conditional_staged(staged, response, path):
+    """領域条件付き感度（段階的に絞った領域）。因子を分類色でラベル、領域を濃淡で。"""
+    x = np.arange(len(XKEYS)); nb = len(staged); w = 0.8 / nb
+    fig, ax = plt.subplots(figsize=(12.5, 5.2))
+    shades = plt.cm.Reds(np.linspace(0.35, 0.85, nb))
+    for i, s in enumerate(staged):
+        lab = f"{s['name']}（{s['n_samples']:,}点/有効{s['valid_rate']:.0%}）"
+        ax.bar(x + (i - (nb - 1) / 2) * w, s["ST"], w, yerr=s["ST_conf"],
+               color=shades[i], capsize=2, error_kw={"lw": 0.7}, label=lab)
+    ax.set_xticks(x)
+    ax.set_xticklabels([SHORT[k] for k in XKEYS], fontsize=8.5)
+    for tick, k in zip(ax.get_xticklabels(), XKEYS):
+        tick.set_color(CAT_COLOR[CATEGORY[k]])       # 因子ラベルを分類色に
+    ax.set_ylim(0, 1.05); ax.grid(axis="y", alpha=.3)
+    ax.set_ylabel("ST（総合効果, 誤差棒=95%CI）", fontsize=10)
+    ax.legend(fontsize=8.5, loc="upper right", title="絞り込み領域（全域→頻発域）")
+    handles = [plt.Line2D([0], [0], marker="s", ls="", ms=9, mfc=CAT_COLOR[c],
+                          mec="none", label=c) for c in CAT_COLOR]
+    leg2 = ax.legend(handles=handles, fontsize=8, loc="upper left", title="因子分類（ラベル色）")
+    ax.add_artist(leg2)
+    ax.legend(fontsize=8, loc="upper right", title="絞り込み領域")
+    ax.set_title(f"領域条件付き感度（{RLABEL[response]} / design / t={staged[0]['t']:.0f}年）："
+                 "全域では材料因子=曲路率が支配 → 拡散モード頻発域では制御可能な設計因子=活物質密度が浮上",
+                 fontsize=10)
+    fig.tight_layout(); fig.savefig(path, bbox_inches="tight"); plt.close(fig)
+
+
 def fig_convergence(conv, path):
     rows = conv["rows"]
     Ns = [r["n_samples"] for r in rows]

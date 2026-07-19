@@ -56,7 +56,7 @@ children.push(
   new Paragraph({ spacing: { after: 500 }, alignment: AlignmentType.CENTER,
     children: [new TextRun({ text: '感度解析と設計探索アーキテクチャ', font: JP, size: 40, bold: true, color: NAVY })] }),
   new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 100 },
-    children: [new TextRun({ text: '― 理論式ベース Sobol 感度解析による支配因子・支配モードの変遷可視化 ―', font: JP, size: 24, color: ACC })] }),
+    children: [new TextRun({ text: '― 理論式ベース Sobol 感度解析（改訂第2版: 数値信頼性強化）―', font: JP, size: 24, color: ACC })] }),
   new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 900, after: 60 },
     children: [new TextRun({ text: 'プロトタイプ実装報告書', font: JP, size: 26, bold: true })] }),
   new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 40 }, children: [new TextRun({ text: '対象: DC_v5 保存劣化理論式（社内テクニカルレポート T0073-2025-00305 / NCR2170JB Step2 準拠）', font: JP, size: 19, color: GREY })] }),
@@ -115,7 +115,7 @@ children.push(table([3400, 3600, 2200], [
   [{t:'定W放電の放電後電圧一般式', w:3400, align:AlignmentType.LEFT},{t:'y_end=b\'+√(b\'²−zR−zat/3600)', w:3600, align:AlignmentType.LEFT},{t:'一致', color:'2E7D32', bold:true}],
   [{t:'限界Li塩濃度（無次元C-rate→拡散限界）', w:3400, align:AlignmentType.LEFT},{t:'Cli=C_rate·Qareal/(Jlim·1000)', w:3600, align:AlignmentType.LEFT},{t:'一致', color:'2E7D32', bold:true}],
   [{t:'抵抗上昇で限界Li塩濃度が上昇（S18/S35）', w:3400, align:AlignmentType.LEFT},{t:'R(t)↑→C_rate↑→Cli(t)↑ を再現', w:3600, align:AlignmentType.LEFT},{t:'一致', color:'2E7D32', bold:true}],
-  [{t:'限界Li塩濃度の影響順位: 塗布量>曲路率>拡散係数（S28）', w:3400, align:AlignmentType.LEFT},{t:'Cli感度ST: 曲路率0.56/塗布量0.33/密度0.26', w:3600, align:AlignmentType.LEFT},{t:'整合（順位再現）', color:'2E7D32', bold:true}],
+  [{t:'限界Li塩濃度の影響順位: 塗布量>曲路率>拡散係数（S28）', w:3400, align:AlignmentType.LEFT},{t:'Cli感度ST(design): 曲路率0.50/塗布量0.34/密度0.24', w:3600, align:AlignmentType.LEFT},{t:'部分整合（範囲/代入依存, §4.5）', color:'B8860B', bold:true}],
   [{t:'設計成立: 放電後電圧≥2.5V かつ 限界Li塩濃度≤1.4M（Step2）', w:3400, align:AlignmentType.LEFT},{t:'同一制約でOK/NG・コンター定義', w:3600, align:AlignmentType.LEFT},{t:'一致', color:'2E7D32', bold:true}],
   [{t:'300Wは非常に厳しい（容量・発熱）', w:3400, align:AlignmentType.LEFT},{t:'高温・高塗布量で300W維持不可を無効化', w:3600, align:AlignmentType.LEFT},{t:'一致', color:'2E7D32', bold:true}],
 ]));
@@ -132,40 +132,54 @@ children.push(p([new TextRun({text:'実装した4要件: ', font:JP, size:21, bo
 children.push(bullet('① 入力分布モード切替: design（設定上下限の一様分布／設計探索用） と variation（実工程3σの正規分布／ばらつきリスク評価用）。どちらのモードで出した指標かを図に明記。'));
 children.push(bullet('② 独立性: 独立な上流変数にのみDOEを張り、セル設計計算は評価関数の内部に含める。'));
 children.push(bullet('③ 時間依存性: 評価時点を複数指定し、感度指標の時間推移を出力（支配因子の変遷）。'));
-children.push(bullet('④ 物理妥当域マスキング: 300W維持不可（判別式負）・温度外挿・非物理値を無効サンプルとして検出し、除外率を記録・警告（本解析では基準5年時点で約24〜28%）。'));
+children.push(bullet('④ 物理妥当域マスキング: 300W維持不可（判別式負）・温度外挿・非物理値を無効サンプルとして検出し、除外率を記録・警告（基準5年で約24〜28%、8年で最大約39%）。処理方針は §4.5 に明記。'));
+
+// ===== §4.5 数値信頼性の確認 (P1) =====
+children.push(h('4.5 数値信頼性の確認', HeadingLevel.HEADING_2));
+children.push(p('指標を読者が信用してよいか自分で判断できるよう、収束・除外率・代入方針・分母定義をまとめる。本解析の主感度・ネットワーク・収束は N=4096（Saltelli 65,536点／モード。2次指標 S2 を含む）、時間推移は N=2048 で算出した。DC_v5 実式の1点あたり評価時間は約0.66 ms（実測）である。'));
+children.push(p([new TextRun({text:'(1) 収束と信頼区間: ', font:JP, size:20, bold:true, color:NAVY}), new TextRun({text:'全ての棒グラフに 95%信頼区間を誤差棒で表示した。評価点数を増やすと信頼区間が縮小し順位が確定する（例：限界Li塩濃度の曲路率 ST は 1,152点で 0.48±0.16 → 36,864点で 0.50±0.03）。交互作用ネットワーク図では、2次指標 S2 の 95%信頼区間が 0 を跨ぐ（非有意な）エッジを破線・淡色に落とし、ノイズを太い線として誤読させないようにした。', font:JP, size:20})]));
+children.push(...fig('sobol_convergence.png', 560, '図0. Sobol指標の収束（限界Li塩濃度, design, 5年）。横軸=実際に評価した点数（対数）、縦軸=ST、誤差棒=95%CI。N≈2,000（約3万点）以上で順位が確定する。'));
+children.push(p([new TextRun({text:'(2) 無効サンプルの処理: ', font:JP, size:20, bold:true, color:NAVY}), new TextRun({text:'無効サンプルの扱いを明示的な引数 invalid_policy（median=中央値代入／penalty=worst-case代入／report_only）で選択できるようにした。既定は median。ただし欠測はランダムではなく、300W維持不可になるのは高塗布量・高温の個体であり、まさに感度を測りたい因子と強く相関する。したがって代入は指標を系統的に歪め得る。', font:JP, size:20})]));
+children.push(p([new TextRun({text:'(3) 代入方針のロバスト性【要注意】: ', font:JP, size:20, bold:true, color:ACC}), new TextRun({text:'限界Li塩濃度の ST 上位を median と penalty で比較すると順位が入れ替わった（median: 曲路率>塗布量>密度 ／ penalty: 塗布量>抵抗>温度。top3 非安定）。penalty は「無効化の原因（塗布量・温度）」を最悪値で埋めるため、Cli の大きさを決める因子（曲路率）と成立可否を決める因子を混同する。よって限界Li塩濃度の感度は「成立する設計に条件づけた指標」と解釈し、成立可否そのものは次の二値応答で別途分解するのが正しい。', font:JP, size:20})]));
+children.push(p([new TextRun({text:'(4) 二値応答「300W維持可否」の追加: ', font:JP, size:20, bold:true, color:NAVY}), new TextRun({text:'300W維持の成否（0/1）を新しい応答として追加した。これは全域で定義されるため代入が不要で、欠測バイアスの影響を受けない。「どの因子が電力維持の成否を支配するか」に直接答え、有効率の時系列（84%→61%）の因子分解にあたる。結果は塗布量・セル抵抗・使用温度が支配（§5.1 参照）。', font:JP, size:20})]));
+children.push(p([new TextRun({text:'(5) 母集団比率の分母: ', font:JP, size:20, bold:true, color:NAVY}), new TextRun({text:'拡散劣化モード割合を「全サンプル基準」と「有効サンプル基準」の2分母で併記した（図3右）。8年時点で 42%（全基準）に対し 68%（有効基準）と乖離する。脱落するのは高塗布量＝拡散モードに落ちやすい個体なので、有効基準は生存者バイアスで過大評価となる。この乖離自体が報告すべき結果である。', font:JP, size:20})]));
 
 // ===== §5 結果 =====
 children.push(h('5. 結果', HeadingLevel.HEADING_1));
 children.push(h('5.1 応答ごとに支配因子が異なる', HeadingLevel.HEADING_2));
-children.push(p('放電後電圧（抵抗劣化モードの指標）と限界Li塩濃度（拡散劣化モードの指標）では、支配因子が明確に分離する。放電後電圧は 塗布量・セル抵抗・使用温度 が支配し、限界Li塩濃度は 曲路率・塗布量・活物質密度・拡散係数 が支配する。'));
-children.push(...fig('sobol_main.png', 630, '図1. Sobol感度（2応答×2分布モード）。上=放電後電圧、下=限界Li塩濃度。左=design、右=variation。応答で支配因子が分離し、分布モードでも順位が変わる。'));
-children.push(table([2600, 3400, 3200], [
-  [H('応答（モード）', 2600, AlignmentType.LEFT), H('design での ST 上位', 3400, AlignmentType.LEFT), H('variation での ST 上位', 3200, AlignmentType.LEFT)],
-  [{t:'放電後電圧（抵抗劣化）', w:2600, align:AlignmentType.LEFT},{t:'塗布量0.96 / セル抵抗0.55 / 温度0.40', w:3400, align:AlignmentType.LEFT},{t:'温度0.71 / 塗布量0.50 / セル抵抗0.37', w:3200, align:AlignmentType.LEFT}],
-  [{t:'限界Li塩濃度（拡散劣化）', w:2600, align:AlignmentType.LEFT},{t:'曲路率0.56 / 塗布量0.33 / 密度0.26', w:3400, align:AlignmentType.LEFT},{t:'曲路率0.40 / 密度0.27 / 拡散係数0.24', w:3200, align:AlignmentType.LEFT}],
+children.push(p('放電後電圧（抵抗劣化モードの指標）、限界Li塩濃度（拡散劣化モードの指標）、および300W維持可否（二値＝電力維持の成否）の3応答で、支配因子が明確に分離する。放電後電圧と維持可否は 塗布量・セル抵抗・使用温度 が支配し、限界Li塩濃度は 曲路率・塗布量・活物質密度 が支配する。すべて N=4096（65,536点）、誤差棒は95%信頼区間。'));
+children.push(...fig('sobol_main.png', 640, '図1. Sobol感度（3応答×2分布モード, 誤差棒=95%CI）。上=放電後電圧、中=限界Li塩濃度、下=300W維持可否（二値・代入不要）。左=design、右=variation。各パネルに分布モード・評価時点・N・代入方針・有効率を明記。'));
+children.push(table([2500, 3450, 3250], [
+  [H('応答（モード）', 2500, AlignmentType.LEFT), H('design での ST 上位', 3450, AlignmentType.LEFT), H('variation での ST 上位', 3250, AlignmentType.LEFT)],
+  [{t:'放電後電圧（抵抗劣化）', w:2500, align:AlignmentType.LEFT},{t:'塗布量0.93 / セル抵抗0.54 / 温度0.39', w:3450, align:AlignmentType.LEFT},{t:'温度0.75 / 塗布量0.57 / セル抵抗0.47', w:3250, align:AlignmentType.LEFT}],
+  [{t:'限界Li塩濃度（拡散劣化）', w:2500, align:AlignmentType.LEFT},{t:'曲路率0.50 / 塗布量0.34 / 密度0.24', w:3450, align:AlignmentType.LEFT},{t:'曲路率0.38 / 温度0.28 / 密度0.27', w:3250, align:AlignmentType.LEFT}],
+  [{t:'300W維持可否（二値, 代入不要）', w:2500, align:AlignmentType.LEFT},{t:'塗布量0.81 / セル抵抗0.46 / 温度0.30', w:3450, align:AlignmentType.LEFT},{t:'温度0.79 / 塗布量0.39 / セル抵抗0.31', w:3250, align:AlignmentType.LEFT}],
 ]));
-children.push(p([new TextRun({text:'B-4①の含意: ', font:JP, size:19, bold:true}), new TextRun({text:'variation（ばらつき）では使用温度の寄与が跳ね上がる。設計探索（design）で「温度は自分で振らないから効かない」と見えても、ばらつきリスク評価では温度が主役になり得る。Sobol指標は与えた入力分布に完全従属するため、どちらのモードの指標かを常に明記する必要がある。', font:JP, size:19, color:GREY})]));
+children.push(p([new TextRun({text:'B-4①の含意（分布モードで順位が変わる）: ', font:JP, size:19, bold:true}), new TextRun({text:'variation（ばらつき）では使用温度の寄与が跳ね上がり、放電後電圧・維持可否とも温度が首位になる。設計探索（design）で「温度は自分で振らないから効かない」と見えても、ばらつきリスク評価では温度が主役になる。Sobol指標は与えた入力分布に完全従属するため、どちらのモードの指標かを常に明記する必要がある（詳細は §5.4）。', font:JP, size:19, color:GREY})]));
 
-children.push(h('5.2 保存劣化過程での支配因子・支配モードの変遷【核心】', HeadingLevel.HEADING_2));
+children.push(h('5.2 保存劣化過程での支配モードの変遷（不確かさ伝播の成果）', HeadingLevel.HEADING_2));
 children.push(p('感度指標の時間推移を見ると、放電後電圧では使用温度・セル抵抗の寄与が保存とともに拡大する（温度加速項の顕在化）。一方、限界Li塩濃度では曲路率・塗布量が一貫して支配する。'));
-children.push(...fig('sobol_time_evolution.png', 630, '図2. 感度指標の時間推移（design）。左=放電後電圧、右=限界Li塩濃度。横軸=保存年、縦軸=ST。'));
-children.push(p('さらに重要なのは、支配「モード」自体が保存とともに遷移することである。公称設計では、保存が進むと限界Li塩濃度が設計budget（1.4M）を超え、同時に放電後電圧が2.5Vを割る。すなわち抵抗劣化モードから電解液Li+濃度拡散劣化モードへ、5年近傍で遷移する。母集団で見ると、拡散劣化モードの個体割合は保存とともに増加し（53%→69%）、設計成立率は低下する（39%→16%）。'));
-children.push(...fig('sobol_mode_transition.png', 630, '図3. 支配因子・支配モードの変遷（本検討の核心）。左=公称設計の軌跡（放電後電圧・限界Li塩濃度が5年近傍で閾値を越えモード遷移）。右=母集団の拡散モード割合・成立率・有効率の時間推移。'));
-children.push(table([1900, 1500, 1500, 1500, 1500], [
+children.push(...fig('sobol_time_evolution.png', 640, '図2. 感度指標の時間推移（design, N=2048, 帯=95%CI）。左=放電後電圧、中=限界Li塩濃度、右=300W維持可否。横軸=保存年、縦軸=ST。'));
+children.push(p([new TextRun({text:'この時間推移は厳密には感度解析というより理論式の構造上ほぼ必然の挙動である。劣化項が r(T)·t と k(T)·√t なので t=0 では温度の寄与は定義上ゼロで、増えるしかない。限界Li塩濃度は曲路率・塗布量が一貫して支配し順位は変わらない。したがって以下のモード遷移は「感度」ではなく', font:JP, size:21}), new TextRun({text:'不確かさ伝播（UP）の成果', font:JP, size:21, bold:true}), new TextRun({text:'として、理論式の帰結を定量的に確認し遷移時期と母集団比率を定量化したものと位置づける。真に非自明な発見は §5.4（領域条件付き感度）にある。', font:JP, size:21})]));
+children.push(p('公称設計では、保存が進むと限界Li塩濃度が設計budget（1.4M）を超え、同時に放電後電圧が2.5Vを割る。すなわち抵抗劣化モードから電解液Li+濃度拡散劣化モードへ、t≈5.8年で遷移する。母集団で見ると、拡散劣化モードの個体割合は増加し、設計成立率は低下する。'));
+children.push(...fig('sobol_mode_transition.png', 640, '図3. 支配モードの変遷（不確かさ伝播の成果／分母を明示）。左=公称設計の軌跡（放電後電圧・限界Li塩濃度が5〜6年で閾値を越えモード遷移）。右=母集団の拡散モード割合を全サンプル基準と有効サンプル基準の2分母で併記＋成立率・有効率。design, N=1024（9,216点）。'));
+children.push(table([2100, 1400, 1400, 1400, 1400], [
   [H('保存年'), H('0.25'), H('1'), H('3'), H('5〜8')],
-  [{t:'拡散劣化モード割合', align:AlignmentType.LEFT, w:1900},{t:'53%'},{t:'55%'},{t:'59%'},{t:'63→69%'}],
-  [{t:'設計成立率', align:AlignmentType.LEFT, w:1900},{t:'39%'},{t:'36%'},{t:'29%'},{t:'24→16%'}],
-  [{t:'有効率(300W維持可)', align:AlignmentType.LEFT, w:1900},{t:'84%'},{t:'84%'},{t:'79%'},{t:'73→61%'}],
+  [{t:'拡散モード割合（全サンプル基準）', align:AlignmentType.LEFT, w:2100},{t:'44%'},{t:'46%'},{t:'47%'},{t:'46→42%'}],
+  [{t:'拡散モード割合（有効基準）', align:AlignmentType.LEFT, w:2100, color:'B8860B'},{t:'53%'},{t:'55%'},{t:'60%'},{t:'64→68%'}],
+  [{t:'設計成立率（全サンプル基準）', align:AlignmentType.LEFT, w:2100},{t:'39%'},{t:'36%'},{t:'29%'},{t:'24→16%'}],
+  [{t:'有効率=300W維持可（全基準）', align:AlignmentType.LEFT, w:2100},{t:'84%'},{t:'84%'},{t:'79%'},{t:'72→61%'}],
 ]));
+children.push(p([new TextRun({text:'分母に注意: ', font:JP, size:19, bold:true, color:ACC}), new TextRun({text:'拡散モード割合は分母（全 vs 有効）で 42% と 68% に乖離する（8年）。有効基準は脱落した高塗布量個体を除くため過大。§4.5(5) 参照。', font:JP, size:19, color:GREY})]));
 children.push(p([new TextRun({text:'設計上の示唆: ', font:JP, size:19, bold:true}), new TextRun({text:'初期に抵抗劣化モードで成立していても、保存で限界Li塩濃度が上昇し拡散劣化モードへ落ちる。したがって「劣化後も限界Li塩濃度を下回る」初期Li塩濃度設計が必要条件であり、そのうえで抵抗上昇を抑えることが高出力寿命の延伸に直結する（レポートの改善方向性と整合）。', font:JP, size:19, color:GREY})]));
 
 children.push(h('5.3 交互作用の可視化（第3の柱の本体）', HeadingLevel.HEADING_2));
 children.push(p('並行座標は交互作用の表現が構造的に苦手（軸の並び順に依存し、3次以上は事実上見えない）。そこを埋めるのが交互作用ネットワーク図である。ノード径＝ST（総合効果）、エッジ太さ＝2次のSobol指標 S2（2変数の組合せ効果）を表す。'));
-children.push(...fig('sobol_network.png', 600, '図4. 交互作用ネットワーク（design）。左=放電後電圧、右=限界Li塩濃度。ノード色＝因子分類、径＝ST、線＝S2。'));
+children.push(...fig('sobol_network.png', 600, '図4. 交互作用ネットワーク（design, N=4096, 誤差棒つき土台）。ノード径＝ST、線＝2次Sobol指標 S2。S2の95%CIが0を跨ぐ非有意なエッジは破線・淡色に落とし、ノイズを太線として誤読させない。'));
 
-children.push(h('5.4 領域条件付き感度（並行座標ブラッシング相当）', HeadingLevel.HEADING_2));
+children.push(h('5.4 領域条件付き感度（本検討の真の発見）', HeadingLevel.HEADING_2));
 children.push(p('全体感度では「効き方が単調か、特定領域だけで変化するか」は答えられない。並行座標で領域を絞って感度を取り直すと初めて見える。拡散劣化モードが出やすい領域（塗布量10〜13・曲路率1.7〜2.0）に絞ると、限界Li塩濃度の支配因子は曲路率から活物質密度へ入れ替わる。部分集合が小さすぎると指標が不安定になるため、最小サンプル数のガード（N<200で警告）を設けている。'));
-children.push(...fig('sobol_conditional.png', 600, '図5. 領域条件付き感度（限界Li塩濃度, design）。全域 vs ブラッシング領域で寄与度の順位が変わる。'));
+children.push(...fig('sobol_conditional.png', 600, '図5. 領域条件付き感度（限界Li塩濃度, design, 5年）。全域では材料因子=曲路率が支配的に見えるが、拡散モード頻発域（塗布量10〜13・曲路率1.7〜2.0）に絞ると制御可能な設計因子=活物質密度が主役に変わる（打ち手がある）。'));
 
 // ===== §6 アーキテクチャ =====
 children.push(h('6. 設計探索アーキテクチャ（①②③の統合）', HeadingLevel.HEADING_1));
@@ -194,10 +208,10 @@ children.push(h('付録A. 実装・再現手順', HeadingLevel.HEADING_1));
 children.push(p('乱数シードは全て固定し再現性を担保。図中の文言は日本語。主要モジュールは以下（mf_demo/explorer/）。'));
 children.push(bullet('vendor_dcv5/dc_model.py … DC_v5 実式を無改変で取り込み（劣化式は実物）'));
 children.push(bullet('cell_design.py … 独立上流変数→派生量（B-4②）'));
-children.push(bullet('degradation.py … 実式ラッパ（b\'=2.0, Arrhenius, 2応答, 2モード）'));
+children.push(bullet('degradation.py … 実式ラッパ（b\'=2.0, Arrhenius, 3応答=電圧/Li塩/維持可否, 2モード）'));
 children.push(bullet('config.py / sensitivity.py … 分布モード・時間依存・マスキング'));
 children.push(bullet('plots.py / screening.py / viz_explorer.py … 感度図・スクリーニング・並行座標/コンター/アーキテクチャ'));
-children.push(p([new TextRun({text:'実行: ', font:JP, size:20, bold:true}), new TextRun({text:'python -m mf_demo.explorer.run_sensitivity 256  （感度6図）／  python -m mf_demo.explorer.run_explorer 600  （①②③ 5図）', font:JP, size:19, color:GREY})]));
+children.push(p([new TextRun({text:'実行: ', font:JP, size:20, bold:true}), new TextRun({text:'python -m mf_demo.explorer.run_sensitivity 4096 2048  （感度5図, 約6分）／  python -m mf_demo.explorer.run_explorer 600  （①②③ 5図）', font:JP, size:19, color:GREY})]));
 children.push(p([new TextRun({text:'免責: ', font:JP, size:19, bold:true, color:ACC}), new TextRun({text:'本プロトタイプは原理を絵で伝えることを優先した合成モデルであり、精度較正済みの設計ツールではない。数値は DC_v5 row82 近傍のオーダーに合わせてある。', font:JP, size:19, color:GREY})]));
 
 // ===== ドキュメント =====

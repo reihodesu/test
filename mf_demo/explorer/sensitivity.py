@@ -130,6 +130,34 @@ def convergence(mode: str, t: float, response: str = "Cli",
     return {"rows": rows, "response": response, "mode": mode, "t": t}
 
 
+MIN_SAMPLES = 200  # 領域条件付き感度の最小サンプル数ガード
+
+
+def conditional_staged(response: str, t: float, N: int, regions, keys=None,
+                       invalid_policy="median"):
+    """段階的に絞った複数領域で ST を算出（並行座標ブラッシング相当・領域条件付き）。
+
+    regions: [(name, override_bounds_dict), ...]（全域→中間→頻発域 の順を想定）
+    """
+    keys = keys or XKEYS
+    out = []
+    for name, ov in regions:
+        problem = make_problem("design", keys, override_bounds=ov)
+        X = sobol_sample.sample(problem, N, calc_second_order=False, seed=7)
+        if len(X) < MIN_SAMPLES:
+            print(f"  [警告] 領域『{name}』サンプル数不足 → スキップ")
+            continue
+        Y = evaluate(X, keys, t)
+        d = _indices(problem, Y[response] if response != "feasible"
+                     else Y["valid"].astype(float), False, invalid_policy,
+                     RESP_PENALTY.get(response, 0.0))
+        d.update({"name": name, "n_samples": int(len(X)),
+                  "valid_rate": float(np.mean(Y["valid"])), "response": response,
+                  "t": t, "override": ov})
+        out.append(d)
+    return out
+
+
 def imputation_robustness(mode: str, t: float, N: int, response="Cli", keys=None):
     """代入方針（median vs penalty）で ST 順位が変わらないか比較。"""
     keys = keys or XKEYS
