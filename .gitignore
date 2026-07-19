@@ -1,0 +1,6 @@
+# 配布用に生成する成果物アーカイブ(ソースは追跡済みのため追跡しない)
+microstrip_mf_surrogate.zip
+*.zip
+
+__pycache__/
+*.pyc
