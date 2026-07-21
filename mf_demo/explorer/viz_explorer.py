@@ -13,6 +13,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib.colors import ListedColormap
 from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
 
 from .config import XKEYS, VARSPEC, RESPONSES
@@ -89,10 +90,23 @@ def parallel_coordinates(df, active_keys, ST, path, brush=None, t_ref=T_REF,
 # ---------------------------------------------------------------------------
 # ③ 制約つき2軸コンター（セル抵抗 × 正極塗布量, 報告書 NCR2170JB Step2）
 # ---------------------------------------------------------------------------
-def contour_2axis(path, xkey="R0_init", ykey="coat_load", nominal=None, ng=60,
-                  t_ref=T_REF):
-    if nominal is None:
-        nominal = {k: VARSPEC[k]["mean"] for k in XKEYS}
+def _fixed_note(xkey, ykey, nominal):
+    """軸に取らない5変数の固定値を文字列化（D-1: 固定値明記）。"""
+    unit = {"R0_init": "mΩ", "coat_load": "mg/cm²", "am_cap": "Ah/g",
+            "mix_density": "g/cm³", "Dely": "m²/s", "gamma": "", "T_use": "℃"}
+    parts = []
+    for k in XKEYS:
+        if k in (xkey, ykey):
+            continue
+        v = nominal[k]
+        vs = f"{v:.2e}" if v < 1e-3 else (f"{v:.3g}")
+        parts.append(f"{SHORT[k].splitlines()[0]}={vs}{unit[k]}")
+    return "固定: " + " / ".join(parts)
+
+
+def _draw_contour(ax, fig, xkey, ykey, nominal, ng, t_ref, color_by="y_end",
+                  show_cbar=True):
+    """1枚のコンターを ax に描画。塗り=color_by、両制約線＋NG網掛け。"""
     xr = np.linspace(*VARSPEC[xkey]["design"], ng)
     yr = np.linspace(*VARSPEC[ykey]["design"], ng)
     XX, YY = np.meshgrid(xr, yr)
@@ -102,31 +116,70 @@ def contour_2axis(path, xkey="R0_init", ykey="coat_load", nominal=None, ng=60,
             x = dict(nominal); x[xkey] = XX[a, b]; x[ykey] = YY[a, b]
             r = responses_at(x, t_ref)
             YEND[a, b] = r["y_end"]; CLI[a, b] = r["Cli"]
-
-    fig, ax = plt.subplots(figsize=(9.2, 7))
-    cf = ax.contourf(XX, YY, YEND, levels=14, cmap="viridis", alpha=0.92)
-    fig.colorbar(cf, ax=ax, fraction=0.045, pad=0.02).set_label(
-        f"放電後電圧 y_end @ {t_ref:.0f}年 [V]", fontsize=10)
-    cl = ax.contour(XX, YY, YEND, levels=[Y_MIN], colors="red", linewidths=2.4)
-    ax.clabel(cl, fmt=f"電圧={Y_MIN:.1f}V(下限)", fontsize=9)
-    ct = ax.contour(XX, YY, CLI, levels=[CLI_MAX], colors="white", linewidths=2.4,
+    field = YEND if color_by == "y_end" else CLI
+    flabel = (f"放電後電圧 y_end @ {t_ref:.0f}年 [V]" if color_by == "y_end"
+              else f"限界Li塩濃度 Cli @ {t_ref:.0f}年 [mol/L]")
+    cmap = "viridis" if color_by == "y_end" else "plasma"
+    cf = ax.contourf(XX, YY, field, levels=14, cmap=cmap, alpha=0.92)
+    if show_cbar:
+        fig.colorbar(cf, ax=ax, fraction=0.045, pad=0.02).set_label(flabel, fontsize=9)
+    cl = ax.contour(XX, YY, YEND, levels=[Y_MIN], colors="red", linewidths=2.2)
+    ax.clabel(cl, fmt=f"電圧={Y_MIN:.1f}V", fontsize=8)
+    ct = ax.contour(XX, YY, CLI, levels=[CLI_MAX], colors="white", linewidths=2.2,
                     linestyles="--")
-    ax.clabel(ct, fmt=f"Li塩={CLI_MAX:.1f}M(上限)", fontsize=9)
+    ax.clabel(ct, fmt=f"Li塩={CLI_MAX:.1f}M", fontsize=8)
     NG = (~(YEND >= Y_MIN)) | (~(CLI <= CLI_MAX)) | ~np.isfinite(YEND)
-    ax.contourf(XX, YY, NG.astype(float), levels=[0.5, 1.5], colors=["#555"],
-                alpha=0.42, zorder=3)
-    ax.contourf(XX, YY, NG.astype(float), levels=[0.5, 1.5], colors="none",
-                hatches=["//"], zorder=3.1)
-    ax.set_xlabel(SHORT[xkey].replace("\n", " "), fontsize=11)
-    ax.set_ylabel(SHORT[ykey].replace("\n", " "), fontsize=11)
+    # NG のみ灰色で塗る（pcolormesh+マスクにより全NG/全OKの一様ケースでも正しく描画）
+    ng_m = np.ma.masked_where(~NG, np.ones_like(XX, dtype=float))
+    ax.pcolormesh(XX, YY, ng_m, cmap=ListedColormap(["#8a8a8a"]), vmin=0, vmax=1,
+                  alpha=0.72, zorder=3, shading="auto")
+    ax.set_xlabel(SHORT[xkey].replace("\n", " "), fontsize=10)
+    ax.set_ylabel(SHORT[ykey].replace("\n", " "), fontsize=10)
+    return cf
+
+
+def contour_2axis(path, xkey="R0_init", ykey="coat_load", nominal=None, ng=60,
+                  t_ref=T_REF, color_by="y_end", axis_basis="y_end 上位2軸"):
+    if nominal is None:
+        nominal = {k: VARSPEC[k]["mean"] for k in XKEYS}
+    fig, ax = plt.subplots(figsize=(9.4, 7.2))
+    _draw_contour(ax, fig, xkey, ykey, nominal, ng, t_ref, color_by)
     ax.set_title("制約つき2軸コンター（局所地形の設計OK/NG, 報告書 NCR2170JB Step2 と同形式）\n"
-                 f"横={SHORT[xkey].splitlines()[0]} 縦={SHORT[ykey].splitlines()[0]}（他は公称固定, {t_ref:.0f}年後）"
-                 "／ 赤=電圧下限 白破線=Li塩上限 網掛=NG", fontsize=10)
-    handles = [Line2D([0], [0], color="red", lw=2.4, label=f"放電後電圧 >= {Y_MIN}V"),
-               Line2D([0], [0], color="white", lw=2.4, ls="--", label=f"限界Li塩濃度 <= {CLI_MAX}M"),
+                 f"横={SHORT[xkey].splitlines()[0]} 縦={SHORT[ykey].splitlines()[0]}"
+                 f"（軸選択根拠: {axis_basis}, {t_ref:.0f}年後）／ 赤=電圧下限 白破線=Li塩上限 網掛=NG",
+                 fontsize=10)
+    handles = [Line2D([0], [0], color="red", lw=2.2, label=f"放電後電圧 >= {Y_MIN}V"),
+               Line2D([0], [0], color="white", lw=2.2, ls="--", label=f"限界Li塩濃度 <= {CLI_MAX}M"),
                plt.Rectangle((0, 0), 1, 1, fc="#55555588", label="NG（制約違反/維持不可）")]
-    ax.legend(handles=handles, fontsize=9, loc="upper right", framealpha=0.9)
+    ax.legend(handles=handles, fontsize=8.5, loc="upper right", framealpha=0.9)
+    ax.text(0.5, -0.13, _fixed_note(xkey, ykey, nominal), transform=ax.transAxes,
+            ha="center", va="top", fontsize=8, color="#444")
     fig.tight_layout(); fig.savefig(path, bbox_inches="tight"); plt.close(fig)
+
+
+def contour_gamma3(path, xkey="R0_init", ykey="coat_load", gammas=(1.4, 1.7, 2.0),
+                   ng=60, t_ref=T_REF):
+    """D-3: 曲路率 低/中/高 の3条件でコンターを横並び（固定値の影響を可視化）。"""
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6), sharey=True)
+    for ax, g in zip(axes, gammas):
+        nominal = {k: VARSPEC[k]["mean"] for k in XKEYS}
+        nominal["gamma"] = g
+        _draw_contour(ax, fig, xkey, ykey, nominal, ng, t_ref, "y_end",
+                      show_cbar=(ax is axes[-1]))
+        lv = {1.4: "低", 1.7: "中", 2.0: "高"}.get(g, "")
+        ax.set_title(f"正極曲路率 γ={g}（{lv}）", fontsize=10.5)
+        if ax is not axes[0]:
+            ax.set_ylabel("")
+    handles = [Line2D([0], [0], color="red", lw=2.2, label=f"放電後電圧 >= {Y_MIN}V"),
+               Line2D([0], [0], color="white", lw=2.2, ls="--", label=f"限界Li塩濃度 <= {CLI_MAX}M"),
+               plt.Rectangle((0, 0), 1, 1, fc="#55555588", label="NG")]
+    fig.legend(handles=handles, loc="lower center", ncol=3, fontsize=9, frameon=False,
+               bbox_to_anchor=(0.5, -0.02))
+    fig.suptitle("D-3 コンター条件比較（セル抵抗×塗布量, 5年後）：曲路率が上がると限界Li塩濃度上限線(白)が下がり成立域が縮小\n"
+                 f"（他固定: {_fixed_note(xkey, ykey, {k: VARSPEC[k]['mean'] for k in XKEYS}).replace('固定: ','').replace('正極曲路率=1.6 / ','')}）",
+                 fontsize=11)
+    fig.tight_layout(rect=[0, 0.02, 1, 0.93])
+    fig.savefig(path, bbox_inches="tight"); plt.close(fig)
 
 
 # ---------------------------------------------------------------------------

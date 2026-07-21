@@ -207,13 +207,39 @@ def fig_f1_robustness(res, path):
     fig.savefig(path, bbox_inches="tight"); plt.close(fig)
 
 
+def fig_mode_stacked(modefrac, path):
+    """E-6: 抵抗劣化/拡散劣化/300W維持不可 の3区分・合計100%積み上げ面グラフ。
+
+    全サンプル基準なので分母の議論が不要。個体がどこへ流れたかが一目で分かる。
+    """
+    t = np.array(modefrac["times"])
+    valid = np.array(modefrac["valid_frac"])
+    diff = np.array(modefrac["diffusion_frac_all"])   # 全サンプル基準
+    infeasible = (1.0 - valid) * 100
+    diffusion = diff * 100
+    resistance = (valid - diff) * 100                 # 有効 かつ 非拡散
+    fig, ax = plt.subplots(figsize=(9.5, 5.4))
+    ax.stackplot(t, resistance, diffusion, infeasible,
+                 labels=["抵抗劣化モード（有効・非拡散）", "拡散劣化モード（有効・拡散）",
+                         "300W維持不可（無効）"],
+                 colors=["#4C78A8", "#d62728", "#999999"], alpha=0.85)
+    ax.set_xlabel("保存時点 t [year]"); ax.set_ylabel("母集団に占める割合 [%]（合計100%）")
+    ax.set_ylim(0, 100); ax.set_xlim(t.min(), t.max())
+    ax.legend(loc="lower center", fontsize=9, ncol=1, framealpha=0.9)
+    ax.set_title(f"母集団の3区分推移（全サンプル基準・合計100% / {MODE_JP[modefrac['mode']]} / N={modefrac['N']}）：\n"
+                 "維持不可(灰)が16→39%へ増加し両モードを希釈。拡散劣化(赤)は47%を頂点に減少に転じる",
+                 fontsize=10)
+    fig.tight_layout(); fig.savefig(path, bbox_inches="tight"); plt.close(fig)
+
+
 def fig_conditional_staged(staged, response, path):
     """領域条件付き感度（段階的に絞った領域）。因子を分類色でラベル、領域を濃淡で。"""
     x = np.arange(len(XKEYS)); nb = len(staged); w = 0.8 / nb
     fig, ax = plt.subplots(figsize=(12.5, 5.2))
     shades = plt.cm.Reds(np.linspace(0.35, 0.85, nb))
     for i, s in enumerate(staged):
-        lab = f"{s['name']}（{s['n_samples']:,}点/有効{s['valid_rate']:.0%}）"
+        lab = (f"{s['name']}（{s['n_samples']:,}点/有効{s['valid_rate']:.0%}"
+               f"/代入{s.get('nan_rate', 0):.0%}）")
         ax.bar(x + (i - (nb - 1) / 2) * w, s["ST"], w, yerr=s["ST_conf"],
                color=shades[i], capsize=2, error_kw={"lw": 0.7}, label=lab)
     ax.set_xticks(x)
