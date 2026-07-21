@@ -1,0 +1,12 @@
+{
+  "name": "dcv5-report-builder",
+  "version": "3.0.0",
+  "private": true,
+  "description": "保存劣化 感度解析 報告書（改訂第3版）を docx-js で生成するビルダー",
+  "scripts": {
+    "build": "node build_report.js"
+  },
+  "dependencies": {
+    "docx": "^9.7.1"
+  }
+}

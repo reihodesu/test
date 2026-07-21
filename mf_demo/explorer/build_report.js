@@ -8,8 +8,15 @@ const {
   ImageRun, PageBreak, PageOrientation, LevelFormat, Header, Footer, PageNumber,
 } = D;
 
-const FIG = '/home/user/test/mf_demo/output/explorer';
-const dims = JSON.parse(fs.readFileSync('/tmp/claude-0/-home-user-test/66f60544-0d32-51d6-b6fc-f2239fe73a6e/scratchpad/figdims.json'));
+// パスはスクリプト位置（mf_demo/explorer/）を基準に解決する（OS 非依存）。
+const OUT_DIR = path.resolve(__dirname, '..', 'output');
+const FIG = path.join(OUT_DIR, 'explorer');
+// PNG の IHDR チャンク（先頭16-24バイト）から幅・高さを直接読む → 外部 figdims.json 不要。
+function pngSize(file) {
+  const b = fs.readFileSync(path.join(FIG, file));
+  return [b.readUInt32BE(16), b.readUInt32BE(20)];
+}
+const dims = new Proxy({}, { get: (_, name) => pngSize(name) });
 const JP = 'IPAGothic';
 const NAVY = '1F3864', ACC = 'B4472C', GREY = '595959', GREEN = '2E7D32', GOLD = 'B8860B';
 
@@ -289,7 +296,7 @@ const doc = new Document({
 });
 
 Packer.toBuffer(doc).then(buf => {
-  const out = '/home/user/test/mf_demo/output/報告書_保存劣化_感度解析.docx';
+  const out = path.join(OUT_DIR, '報告書_保存劣化_感度解析.docx');
   fs.writeFileSync(out, buf);
   console.log('WROTE', out, buf.length, 'bytes');
 });
